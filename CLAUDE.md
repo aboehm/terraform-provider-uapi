@@ -38,6 +38,28 @@ Each resource is a typed model with `tfsdk` tags, a `body()` (model -> request m
 - **Updates use `PUT` (full replace),** matching Terraform's "plan is the complete desired state". `PATCH` (merge) is only for the `system` singleton.
 - **`id` is the uapi ULID,** computed with `UseStateForUnknown`.
 
+## Forward compatibility (the uapi v1 contract)
+
+uapi keeps `/api/v1/` additive: it may add response fields, optional request fields, resources,
+error codes, and enum values within v1, and only bumps to `/api/v2/` for breaking changes. The
+provider depends on that, so preserve these invariants:
+
+- **Read responses into a map and pick known keys.** Never switch to strict struct decoding that
+  errors on unknown fields; uapi adds response fields within v1 and they must be ignored.
+- **No client-side enum validation.** `target`, `proto`, `encryption`, and friends are plain
+  strings validated server-side, so uapi can add allowed values within v1 without a provider
+  release. Schema descriptions list current values for humans only; do not add enum validators.
+- **Branch on HTTP status, not the error `code` string.** `code`/`message` are surfaced in
+  diagnostics, but control flow (e.g. 404 -> RemoveResource) keys off the status only.
+- **Keep the client API-version-agnostic.** The major version lives in the user-supplied
+  `endpoint` path; do not hardcode `/api/v1`.
+
+**Version numbering:** the provider mirrors uapi. Provider `x.y.*` covers exactly the surface of
+uapi `x.y.*` (major and minor track uapi; patch is the provider's own bugfix line). Tag releases
+accordingly: a release covering uapi `1.2` is `v1.2.<patch>`. When uapi ships a new minor with new
+resources or fields, the matching provider minor adds them; a breaking uapi major maps to a
+provider major.
+
 ## Resource-specific gotchas
 
 - **`uapi_system` is a singleton.** No id segment, no create/delete on the wire. Create and Update both `PATCH /system`; Delete is a no-op that only drops state.

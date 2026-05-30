@@ -89,6 +89,33 @@ terraform import uapi_firewall_rule.example cfg0a1b2c   # anonymous: adopted, id
 > management connection. uapi only observes the init script's exit code, not runtime convergence,
 > so a bad change can lock you out.
 
+## Versioning and compatibility
+
+**The provider version tracks the uapi version.** Provider `x.y.*` covers exactly the curated
+surface of uapi `x.y.*`: the major and minor components mirror uapi, and the patch component is the
+provider's own (bugfixes and provider-internal changes that do not change the covered surface). So
+provider `1.2.*` targets the resources, fields, and endpoints of uapi `1.2.*`.
+
+This works because uapi keeps a version additive within its major: uapi `1.y` is a superset of
+`1.(y-1)` (new endpoints, optional fields, response fields, error codes, scope names, enum values),
+and only breaking changes bump the major (`/api/v2/`).
+
+What that means in practice:
+
+- **Match the provider's `x.y` to your router's uapi `x.y`.** A provider built for uapi `1.y` also
+  works against any newer uapi `1.z` (z >= y), because added response fields are ignored. Pointing
+  a newer provider (`1.y`) at an older router (`1.z`, z < y) is the unsupported direction: resources
+  or fields the provider expects may not exist there.
+- **Forward compatible within a major by construction.** Responses are decoded into a map and only
+  known fields are read into state, so response fields a newer uapi adds are ignored, not errors.
+- **Enum values are documented, not enforced client side.** Fields like `target`, `proto`, and
+  `encryption` are plain strings validated by uapi, so values uapi adds within a major work without
+  a provider release (a provider release just documents them).
+- **Errors are handled by HTTP status, not by the `code` string.** New error codes are surfaced
+  verbatim in diagnostics but never change behaviour.
+- **A breaking uapi major (`v2`, served at `/api/v2/`) maps to a provider `2.*`.** Point `endpoint`
+  at the matching `/api/vN` segment for the provider major you run.
+
 ## Building and local development
 
 ```sh
@@ -127,11 +154,12 @@ One-time setup before the first release:
    - `PASSPHRASE`: the key's passphrase (omit if the key has none).
 3. Publish the provider on the registry, pointing it at this repo.
 
-Cutting a release:
+Cutting a release (the tag's `x.y` must match the uapi `x.y` the release covers; see
+[Versioning and compatibility](#versioning-and-compatibility)):
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 The workflow then publishes a GitHub Release the registry can ingest. Validate
