@@ -110,6 +110,34 @@ terraform plan
 
 Acceptance tests (`make testacc`) require a live uapi instance and `TF_ACC=1`.
 
+## Releasing (Terraform Registry)
+
+Releases are built by GoReleaser and signed for the Terraform Registry. The
+`.github/workflows/release.yml` workflow triggers on a `v*` tag and produces the
+artifacts the registry expects: per-platform zips, a `_SHA256SUMS` file, a GPG
+detached signature of it, and `terraform-registry-manifest.json`.
+
+One-time setup before the first release:
+
+1. Generate a GPG key (`gpg --full-generate-key`) and add it to your
+   [Terraform Registry account](https://registry.terraform.io) under the
+   publisher's GPG keys.
+2. Add two repository secrets:
+   - `GPG_PRIVATE_KEY`: the ASCII-armored private key (`gpg --armor --export-secret-keys <id>`).
+   - `PASSPHRASE`: the key's passphrase (omit if the key has none).
+3. Publish the provider on the registry, pointing it at this repo.
+
+Cutting a release:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The workflow then publishes a GitHub Release the registry can ingest. Validate
+the config locally with `goreleaser check` and dry-run with
+`goreleaser build --snapshot --single-target --clean`.
+
 ## License
 
 MIT.
