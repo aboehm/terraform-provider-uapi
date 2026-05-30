@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -152,10 +151,5 @@ func (r *wirelessDeviceResource) Delete(ctx context.Context, req resource.Delete
 }
 
 func (r *wirelessDeviceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	id, err := resolveImportID(ctx, r.client, wirelessDeviceCollection, req.ID)
-	if err != nil {
-		resp.Diagnostics.AddError("Error importing wireless device", err.Error())
-		return
-	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+	importByID(ctx, r.client, wirelessDeviceCollection, "wireless device", req, resp)
 }

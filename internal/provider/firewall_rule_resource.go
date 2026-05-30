@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -223,10 +222,5 @@ func (r *firewallRuleResource) Delete(ctx context.Context, req resource.DeleteRe
 }
 
 func (r *firewallRuleResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	id, err := resolveImportID(ctx, r.client, firewallRuleCollection, req.ID)
-	if err != nil {
-		resp.Diagnostics.AddError("Error importing firewall rule", err.Error())
-		return
-	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+	importByID(ctx, r.client, firewallRuleCollection, "firewall rule", req, resp)
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -122,30 +123,49 @@ func putList(ctx context.Context, m map[string]any, key string, v types.List, di
 	m[key] = items
 }
 
+// importByID resolves an imported id, adopting the section first when it is not
+// yet uapi-managed, and writes the resulting id into state. Adoption mutates the
+// router (it renames the underlying uci section), so it emits a warning that
+// names the old and new ids.
+func importByID(ctx context.Context, c *client.Client, collection, label string, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	id, adopted, err := resolveImportID(ctx, c, collection, req.ID)
+	if err != nil {
+		resp.Diagnostics.AddError("Error importing "+label, err.Error())
+		return
+	}
+	if adopted {
+		resp.Diagnostics.AddWarning(
+			"Adopted an unmanaged section",
+			fmt.Sprintf("%s %q was not uapi-managed, so it was adopted and renamed to %q. "+
+				"This import mutated the router; the resource id is now %q.", label, req.ID, id, id),
+		)
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+}
+
 // resolveImportID looks up an imported id and, when the section is not yet
-// uapi-managed, adopts it (renaming it to a stable ULID). It returns the id the
-// resource should track. Note that importing an unmanaged section mutates the
-// router: the underlying uci section is renamed.
-func resolveImportID(ctx context.Context, c *client.Client, collection, importedID string) (string, error) {
+// uapi-managed, adopts it (renaming it to a stable ULID). adopted reports
+// whether an adoption (a mutating rename) took place.
+func resolveImportID(ctx context.Context, c *client.Client, collection, importedID string) (id string, adopted bool, err error) {
 	obj, found, err := c.GetObject(ctx, fmt.Sprintf("/%s/%s", collection, importedID))
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if !found {
-		return "", fmt.Errorf("no resource found at /%s/%s", collection, importedID)
+		return "", false, fmt.Errorf("no resource found at /%s/%s", collection, importedID)
 	}
 	if managed, ok := obj["managed"].(bool); ok && !managed {
-		adopted, err := c.Post(ctx, fmt.Sprintf("/%s/%s/adopt", collection, importedID), nil)
+		adoptedObj, err := c.Post(ctx, fmt.Sprintf("/%s/%s/adopt", collection, importedID), nil)
 		if err != nil {
-			return "", fmt.Errorf("adopting unmanaged section: %w", err)
+			return "", false, fmt.Errorf("adopting unmanaged section: %w", err)
 		}
-		if id, ok := adopted["id"].(string); ok && id != "" {
-			return id, nil
+		if newID, ok := adoptedObj["id"].(string); ok && newID != "" {
+			return newID, true, nil
 		}
-		return "", fmt.Errorf("adopt response missing id")
+		return "", false, fmt.Errorf("adopt response missing id")
 	}
-	if id, ok := obj["id"].(string); ok && id != "" {
-		return id, nil
+	if existingID, ok := obj["id"].(string); ok && existingID != "" {
+		return existingID, false, nil
 	}
-	return importedID, nil
+	return importedID, false, nil
 }

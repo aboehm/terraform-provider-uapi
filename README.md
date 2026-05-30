@@ -78,7 +78,8 @@ destroy` only drops it from state and leaves the router's settings untouched.
 
 Pre-existing anonymous uci sections (created by LuCI, SSH, etc.) surface as `managed = false`.
 Running `terraform import` on such a section **adopts** it: uapi renames it to a stable ULID and
-flips it to managed. This means import is a *mutating* operation for unmanaged sections.
+flips it to managed. This means import is a *mutating* operation for unmanaged sections. When this
+happens the provider emits a warning naming the old and new ids, so the rename is not silent.
 
 ```sh
 terraform import uapi_firewall_rule.example r_01HX...   # already-managed: read-only import

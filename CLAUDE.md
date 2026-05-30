@@ -64,7 +64,7 @@ provider major.
 
 - **`uapi_system` is a singleton.** No id segment, no create/delete on the wire. Create and Update both `PATCH /system`; Delete is a no-op that only drops state.
 - **`uapi_wireless_interface.key` is write-only.** uapi never returns it, so `read()` must leave the model's key untouched (preserving the planned value) and rely on the computed `has_key`. Do not map a key field out of the response.
-- **Import adopts.** `resolveImportID` (in `helpers.go`) checks `managed`; an unmanaged (anonymous) section is adopted via `POST .../adopt`, which renames it and changes its id. Import is therefore a mutating operation for unmanaged sections. This is intentional.
+- **Import adopts.** `importByID` (in `helpers.go`) wraps `resolveImportID`, which checks `managed`; an unmanaged (anonymous) section is adopted via `POST .../adopt`, which renames it and changes its id. Import is therefore a mutating operation for unmanaged sections (intentional), and `importByID` emits a warning diagnostic naming the old and new ids when it adopts. All resource `ImportState` methods are one-liners delegating to `importByID`.
 - **423 locked is retried in the client,** honoring `Retry-After`. Do not add retry logic in resources.
 
 ## Testing

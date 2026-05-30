@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -211,10 +210,5 @@ func (r *firewallRedirectResource) Delete(ctx context.Context, req resource.Dele
 }
 
 func (r *firewallRedirectResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	id, err := resolveImportID(ctx, r.client, firewallRedirectCollection, req.ID)
-	if err != nil {
-		resp.Diagnostics.AddError("Error importing firewall redirect", err.Error())
-		return
-	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+	importByID(ctx, r.client, firewallRedirectCollection, "firewall redirect", req, resp)
 }
